@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Memotest de Personajes de Cuentos - Cofre Didáctico</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Luckiest+Guy&family=Quicksand:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        :root {
+            --primary: #6366f1;
+            --bg-gradient: radial-gradient(circle, #fdf2f8 0%, #e0e7ff 100%);
+        }
+
+        body {
+            font-family: 'Quicksand', sans-serif;
+            background: var(--bg-gradient);
+            min-height: 100vh;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 {
+            font-family: 'Luckiest Guy', cursive;
+            color: #6366f1;
+            text-shadow: 2px 2px 0px #fff, 4px 4px 0px rgba(99, 102, 241, 0.2);
+        }
+
+        .game-container {
+            width: 100%;
+            max-width: 900px;
+            padding: 20px;
+            text-align: center;
+            flex-grow: 1;
+        }
+
+        .grid {
+            display: grid;
+            gap: 12px;
+            margin-top: 20px;
+            perspective: 1000px;
+            justify-content: center;
+        }
+
+        .grid-easy { grid-template-columns: repeat(3, 100px); }
+        .grid-medium { grid-template-columns: repeat(4, 100px); }
+        .grid-hard { grid-template-columns: repeat(4, 100px); }
+
+        @media (min-width: 640px) {
+            .grid-easy { grid-template-columns: repeat(3, 160px); }
+            .grid-medium { grid-template-columns: repeat(4, 150px); }
+            .grid-hard { grid-template-columns: repeat(4, 150px); }
+        }
+
+        .card {
+            aspect-ratio: 1 / 1;
+            position: relative;
+            cursor: pointer;
+            transform-style: preserve-3d;
+            transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .card.flipped { transform: rotateY(180deg); }
+
+        .card-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            border-radius: 20px;
+            border: 4px solid white;
+            box-shadow: 0 8px 15px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            background: white;
+        }
+
+        .card-back {
+            background: linear-gradient(135deg, #6366f1 0%, #a5b4fc 100%);
+            color: white;
+        }
+
+        .card-front {
+            transform: rotateY(180deg);
+        }
+
+        .card-img {
+            width: 90%;
+            height: 90%;
+            object-fit: contain;
+            pointer-events: none;
+        }
+
+        .level-btn {
+            padding: 12px 24px;
+            border-radius: 15px;
+            font-weight: bold;
+            transition: all 0.3s;
+            background: white;
+            color: #6366f1;
+            border: 2px solid #6366f1;
+        }
+
+        .level-btn.active {
+            background: #6366f1;
+            color: white;
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .stats-bar {
+            background: white;
+            padding: 15px 30px;
+            border-radius: 99px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            display: inline-flex;
+            gap: 20px;
+            margin-bottom: 25px;
+            align-items: center;
+        }
+
+        #victory-modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(67, 56, 202, 0.5);
+            backdrop-filter: blur(10px);
+            z-index: 100;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 40px;
+            border-radius: 40px;
+            max-width: 450px;
+            width: 100%;
+            text-align: center;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        }
+
+        footer {
+            width: 100%;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(5px);
+            border-top: 2px solid rgba(99, 102, 241, 0.1);
+        }
+
+        .logo-img {
+            height: 60px;
+            width: auto;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            border: 2px solid white;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="game-container">
+        <h1 class="text-5xl md:text-6xl my-8">Cuentos Mágicos</h1>
+
+        <div class="flex flex-wrap justify-center gap-4 mb-8">
+            <button onclick="setLevel('easy')" id="btn-easy" class="level-btn active text-lg">Fácil</button>
+            <button onclick="setLevel('medium')" id="btn-medium" class="level-btn text-lg">Medio</button>
+            <button onclick="setLevel('hard')" id="btn-hard" class="level-btn text-lg">Difícil</button>
+        </div>
+
+        <div class="stats-bar">
+            <div class="flex items-center gap-3">
+                <i data-lucide="footprints" class="text-indigo-500 w-6 h-6"></i>
+                <span class="text-xl font-bold">Pasos: <span id="moves" class="text-indigo-600">0</span></span>
+            </div>
+            <div class="w-px h-8 bg-gray-200"></div>
+            <button onclick="initGame()" class="text-indigo-600 font-bold text-lg flex items-center gap-2 hover:scale-105 transition-transform">
+                <i data-lucide="rotate-ccw" class="w-5 h-5"></i> Reiniciar
+            </button>
+        </div>
+
+        <div id="game-grid" class="grid grid-easy"></div>
+    </div>
+
+    <footer class="flex items-center justify-center gap-6">
+        <div class="text-right">
+            <p class="text-indigo-600 font-bold text-xl leading-tight">
+                Creado por <span class="text-indigo-800 font-extrabold">Cofre Didáctico</span>
+            </p>
+            <p class="text-indigo-400 text-sm font-semibold mt-1">
+                Juego Interactivo para abordar el Día Mundial del Libro
+            </p>
+        </div>
+        <img src="Logo_jpg.png" alt="Logo Cofre Didáctico" class="logo-img" onerror="this.style.display='none'">
+    </footer>
+
+    <!-- Modal de Victoria -->
+    <div id="victory-modal">
+        <div class="modal-content">
+            <div class="mb-6 text-yellow-400 flex justify-center gap-2" id="star-rating">
+                <!-- Estrellas dinámicas -->
+            </div>
+            <h2 class="text-4xl font-bold mb-4 text-indigo-600" style="font-family: 'Luckiest Guy';">¡Mágico!</h2>
+            <p id="final-stats" class="text-2xl font-bold text-gray-500 mb-8"></p>
+            <button onclick="closeModal()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-4 rounded-2xl font-bold text-xl shadow-xl transition-colors">
+                Jugar de nuevo 🏰
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const allCharacters = [
+            { name: 'Caperucita', img: 'Memotest_de_cuentos.png' },
+            { name: 'Cerditos', img: 'Los_Tres_Cerditos.png' },
+            { name: 'Jengibre', img: 'Hombrecito_de_Jengibre.png' },
+            { name: 'Pinocho', img: 'Pinocho.png' },
+            { name: 'Ricitos', img: 'Ricitos_de_Oro.png' },
+            { name: 'Hansel', img: 'Hansel_y_Gretel.png' },
+            { name: 'Lobo', img: 'El_Lobo_y_los_7_Cabritos.png' },
+            { name: 'Rana', img: 'Cucu_Cantaba_la_Rana.png' }
+        ];
+
+        const levels = {
+            easy: { pairs: 3, gridClass: 'grid-easy', perfect: 5 },
+            medium: { pairs: 6, gridClass: 'grid-medium', perfect: 10 },
+            hard: { pairs: 8, gridClass: 'grid-hard', perfect: 14 }
+        };
+
+        let currentLevel = 'easy';
+        let flippedCards = [];
+        let matchedPairs = 0;
+        let moves = 0;
+        let canFlip = true;
+
+        const gridElement = document.getElementById('game-grid');
+        const movesElement = document.getElementById('moves');
+
+        function setLevel(level) {
+            currentLevel = level;
+            document.querySelectorAll('.level-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(`btn-${level}`).classList.add('active');
+            initGame();
+        }
+
+        function initGame() {
+            const config = levels[currentLevel];
+            const selected = [...allCharacters].sort(() => 0.5 - Math.random()).slice(0, config.pairs);
+            const deck = [...selected, ...selected].sort(() => 0.5 - Math.random());
+
+            gridElement.className = `grid ${config.gridClass}`;
+            gridElement.innerHTML = '';
+            flippedCards = [];
+            matchedPairs = 0;
+            moves = 0;
+            movesElement.textContent = moves;
+
+            deck.forEach((char) => {
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.dataset.name = char.name;
+
+                card.innerHTML = `
+                    <div class="card-face card-back">
+                        <i data-lucide="book-open" class="w-12 h-12 opacity-30"></i>
+                    </div>
+                    <div class="card-face card-front">
+                        <img src="${char.img}" alt="${char.name}" class="card-img" 
+                             onerror="handleImageError(this, '${char.name}')">
+                    </div>
+                `;
+
+                card.addEventListener('click', () => flipCard(card));
+                gridElement.appendChild(card);
+            });
+
+            lucide.createIcons();
+        }
+
+        function handleImageError(img, name) {
+            const parent = img.parentElement;
+            parent.innerHTML = `<div class="text-center p-2"><i data-lucide="image-off" class="mx-auto text-gray-300 mb-1"></i><span class="text-[10px] font-bold text-gray-400 uppercase">${name}</span></div>`;
+            lucide.createIcons();
+        }
+
+        function flipCard(card) {
+            if (!canFlip || card.classList.contains('flipped') || card.classList.contains('matched')) return;
+            card.classList.add('flipped');
+            flippedCards.push(card);
+            if (flippedCards.length === 2) {
+                moves++;
+                movesElement.textContent = moves;
+                checkMatch();
+            }
+        }
+
+        function checkMatch() {
+            canFlip = false;
+            const [c1, c2] = flippedCards;
+
+            if (c1.dataset.name === c2.dataset.name) {
+                setTimeout(() => {
+                    c1.classList.add('matched');
+                    c2.classList.add('matched');
+                    matchedPairs++;
+                    flippedCards = [];
+                    canFlip = true;
+                    if (matchedPairs === levels[currentLevel].pairs) showVictory();
+                }, 500);
+            } else {
+                setTimeout(() => {
+                    c1.classList.remove('flipped');
+                    c2.classList.remove('flipped');
+                    flippedCards = [];
+                    canFlip = true;
+                }, 1000);
+            }
+        }
+
+        function showVictory() {
+            confetti({
+                particleCount: 150,
+                spread: 70,
+                origin: { y: 0.6 },
+                colors: ['#6366f1', '#a5b4fc', '#ff99c8']
+            });
+
+            const perfect = levels[currentLevel].perfect;
+            let stars = 1;
+            if (moves <= perfect) stars = 3;
+            else if (moves <= perfect + (currentLevel === 'easy' ? 3 : 6)) stars = 2;
+
+            const starContainer = document.getElementById('star-rating');
+            starContainer.innerHTML = '';
+            for(let i=0; i<3; i++) {
+                const star = document.createElement('i');
+                star.setAttribute('data-lucide', 'star');
+                if(i >= stars) star.classList.add('text-gray-200');
+                else star.classList.add('fill-current');
+                starContainer.appendChild(star);
+            }
+
+            document.getElementById('final-stats').textContent = `¡Nivel ${currentLevel} en ${moves} pasos!`;
+            document.getElementById('victory-modal').style.display = 'flex';
+            lucide.createIcons();
+        }
+
+        function closeModal() {
+            document.getElementById('victory-modal').style.display = 'none';
+            initGame();
+        }
+
+        window.onload = initGame;
+    </script>
+</body>
+</html>
